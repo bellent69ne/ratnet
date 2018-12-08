@@ -1,0 +1,32 @@
+handshake - peer establishes connection with a handshake
+
+peer and server
+/* hell0 friend */
+
+data data data data(public key)
+
+peer
+/* I have a gift */
+data data data data(aes encryption key encrypted with public key)
+
+peer and server
+/* I appreciate that */
+
+only peer
+/* I need data */
+
+
+only server
+/* you're welcome */
+
+data data data data(list of ip addresses)
+
+peer and server
+/* bye friend */
+
+
+peer
+/* I need friends */
+data data data data(list of ip addresses)
+
+
