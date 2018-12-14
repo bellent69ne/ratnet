@@ -2,9 +2,9 @@ package main
 
 import (
 	//	"fmt"
-	"github.com/bellent69ne/ratnet/ratp"
+	"github.com/bellent69ne/ratnet/ratServe/serveutil"
 )
 
 func main() {
-	ratp.Serve()
+	serveutil.Serve()
 }
