@@ -1,6 +1,7 @@
 package serveutil
 
 import (
+	//"crypto/rsa"
 	"fmt"
 	"github.com/bellent69ne/ratnet/ratp"
 	"log"
@@ -28,4 +29,10 @@ func handleConnection(conn net.Conn) {
 	parcel := ratp.ReceiveParcel(conn)
 
 	fmt.Println(parcel)
+
+	//key, ok := parcel.Attachment.(rsa.PublicKey)
+	//if ok {
+	//	fmt.Println("Pub")
+	//	fmt.Println(key)
+	//}
 }

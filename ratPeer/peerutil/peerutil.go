@@ -13,5 +13,19 @@ func DoSomething() {
 		log.Fatal(err)
 	}
 
-	newSession.HelloFriend()
+	err = newSession.GenerateRSAkey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = newSession.GenerateAESkey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var newParcel ratp.Parcel
+	err = newParcel.Make(ratp.MsgData, []byte("Assfucked"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	newSession.SendParcel(&newParcel)
+
 }

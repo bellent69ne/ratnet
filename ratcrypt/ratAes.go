@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"io"
 )
 
 // GenerateAESkey - generates AES key of 32 bytes size
@@ -24,17 +25,17 @@ func GenerateAESkey() ([]byte, error) {
 func EncryptAES(key []byte, message []byte) (Envelope, error) {
 	aesGCM, err := makeAesGCM(key)
 	if err != nil {
-		return nil, err
+		return Envelope{nil, nil}, err
 	}
 
 	nonce := make([]byte, aesGCM.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
+		return Envelope{nil, nil}, err
 	}
 
 	encryptedMsg := aesGCM.Seal(nil, nonce, message, nil)
 	if err != nil {
-		return nil, err
+		return Envelope{nil, nil}, err
 	}
 
 	secretEnvelope := Envelope{encryptedMsg, nonce}

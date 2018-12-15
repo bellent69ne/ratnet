@@ -1,8 +1,15 @@
 package ratp
 
 import (
+	//	"crypto/cipher"
 	"crypto/rsa"
 	"encoding/gob"
+	//	"encoding/json"
+	//	"errors"
+	//"fmt"
+	"github.com/bellent69ne/ratnet/ratcrypt"
+	//"io/ioutil"
+	//"log"
 	"net"
 )
 
@@ -11,21 +18,23 @@ const (
 	// initial handshaking, can have public key with it
 	MsgHelloFriend = "/* hell0 fri3nd */\n"
 	// gift means aes encryption key encrypted with recievers public key
-	MsgIHaveAGift = "/* I have a gift */\n"
+	MsgHaveAGift = "/* I have a gift */\n"
 	// receiver received the aes key, everything is ok
-	MsgIAppreciateThat = "/* I appreciate that */\n"
+	MsgAppreciate = "/* I appreciate that */\n"
 	// asking server for range of ip addresses in the network
-	MsgINeedData = "/* I need data */\n"
+	MsgNeedFriends = "/* I need fri3nds */\n"
 	// Server sent range of ip addresses, means ok
 	MsgYoureWelcome = "/* You're welcome */\n"
 	// request for peers to create a chain of hosts(network)
-	MsgINeedFriends = "/* I need fri3nds */\n"
-	PORT            = 1366
+	MsgBeFriends   = "/* Be fri3nds */\n"
+	MsgWereFriends = "/* We're friends */\n"
+	MsgData        = "/* Your data */\n"
+	PORT           = 1366
 )
 
 const (
-	ErrDontHaveData = "/* Can't help */"
-	Err
+	ErrCantHelp       = "/* Can't help */\n"
+	ErrDontUnderstand = "/* I don't understand you */\n"
 )
 
 type Session struct {
@@ -35,46 +44,39 @@ type Session struct {
 	alienPubKey *rsa.PublicKey
 }
 
-// HelloFriend - makes initial handshaking between peers,
-// can have public key attached
-func (self *Session) HelloFriend() {
-	var newParcel Parcel
-	if self.privateKey != nil {
-		newParcel = createParcel(MsgHelloFriend, self.privateKey.PublicKey)
-	}
-	newParcel = createParcel(MsgHelloFriend, nil)
-	SendParcel(self.conn, &newParcel)
-
+// PublicKey - returns public key for session
+func (self *Session) PublicKey() *rsa.PublicKey {
+	return &self.privateKey.PublicKey
 }
 
-// IHaveAGift - sends encrypted aes key for futher communication
-// has to have encrypted aes key attached
-func (self *Session) IHaveAGift() bool {
-	// you should encrypt aesKey with alien public key
-	newParcel := createParcel(MsgIHaveAGift, self.aesKey)
+// AesKey - returns aes encryption for session
+func (self *Session) AesKey() []byte {
+	return self.aesKey
+}
 
-	SendParcel(self.conn, &newParcel)
-
-	answer := ReceiveParcel(self.conn)
-
-	if answer.Message == MsgIAppreciateThat {
-		return true
+// GenerateRSAkey - generates rsa key pair for session
+func (self *Session) GenerateRSAkey() error {
+	private, err := ratcrypt.GenerateRSAkey()
+	if err != nil {
+		return err
 	}
 
-	return false
+	self.privateKey = private
+	return nil
 }
 
-func (self *Session) IAppreciateThat() {
-	newParcel := createParcel(MsgIAppreciateThat, nil)
+// GenerateAeskey - generates aes key for the session
+func (self *Session) GenerateAESkey() error {
+	key, err := ratcrypt.GenerateAESkey()
+	if err != nil {
+		return err
+	}
 
-	SendParcel(self.conn, &newParcel)
+	self.aesKey = key
+	return nil
 }
 
-type Parcel struct {
-	Message    string
-	Attachment interface{}
-}
-
+// Connect - connects to the specified endpoint
 func (self *Session) Connect(endpoint string) (err error) {
 	self.conn, err = net.Dial("tcp", endpoint)
 	if err != nil {
@@ -84,15 +86,9 @@ func (self *Session) Connect(endpoint string) (err error) {
 	return nil
 }
 
-func createParcel(msgType string, attachment interface{}) Parcel {
-	return Parcel{msgType, attachment}
-}
-
 // SendParcel - sends parcel to the connection
-func SendParcel(conn net.Conn, parcel *Parcel) {
-	// Create package to send over network
-	//parcelToSend := createParcel(MsgHelloFriend, *publicKey)
-	parcelEncoder := gob.NewEncoder(conn)
+func (self *Session) SendParcel(parcel *Parcel) {
+	parcelEncoder := gob.NewEncoder(self.conn)
 
 	parcelEncoder.Encode(*parcel)
 }
@@ -104,3 +100,31 @@ func ReceiveParcel(conn net.Conn) (receivedParcel Parcel) {
 
 	return
 }
+
+/*func SendParcel(conn net.Conn, parcel *Parcel) {
+	data, err := json.Marshal(*parcel)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = conn.Write(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func ReceiveParcel(conn net.Conn) (receivedParcel Parcel) {
+	received, err := ioutil.ReadAll(conn)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var newParcel Parcel
+
+	err = json.Unmarshal(received, &newParcel)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return newParcel
+}*/

@@ -29,7 +29,7 @@ func EncryptRSA(pub *rsa.PublicKey, message []byte) ([]byte, error) {
 }
 
 // Decrypt - decrypts given message with the private key
-func EncryptRSA(private *rsa.PrivateKey, message []byte) ([]byte, error) {
+func DecryptRSA(private *rsa.PrivateKey, message []byte) ([]byte, error) {
 	decryptedMsg, err := rsa.DecryptOAEP(sha256.New(), rand.Reader,
 		private, message, nil)
 
