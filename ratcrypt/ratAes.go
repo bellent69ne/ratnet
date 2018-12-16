@@ -4,8 +4,15 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"errors"
 	"io"
 )
+
+const (
+	ErrInvalidKey = "AES... Invalid encryption key"
+)
+
+const keySize = 32
 
 // GenerateAESkey - generates AES key of 32 bytes size
 func GenerateAESkey() ([]byte, error) {
@@ -23,6 +30,9 @@ func GenerateAESkey() ([]byte, error) {
 // Returns encrypted message, nonce for encrypted message, and error
 // in case of errors
 func EncryptAES(key []byte, message []byte) (Envelope, error) {
+	if len(key) != keySize {
+		return Envelope{nil, nil}, errors.New(ErrInvalidKey)
+	}
 	aesGCM, err := makeAesGCM(key)
 	if err != nil {
 		return Envelope{nil, nil}, err
@@ -47,13 +57,16 @@ func EncryptAES(key []byte, message []byte) (Envelope, error) {
 // with aes in GCM mode. Returns decrypted message and error
 // in case of errors
 func DecryptAES(key []byte, secretEnvelope Envelope) ([]byte, error) {
+	if len(key) != keySize {
+		return nil, errors.New(ErrInvalidKey)
+	}
 	aesGCM, err := makeAesGCM(key)
 	if err != nil {
 		return nil, err
 	}
 
 	decryptedMsg, err := aesGCM.Open(nil, secretEnvelope.nonce,
-		secretEnvelope.message, nil)
+		secretEnvelope.Message, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +86,6 @@ func makeAesGCM(key []byte) (cipher.AEAD, error) {
 }
 
 type Envelope struct {
-	message []byte
+	Message []byte
 	nonce   []byte
 }

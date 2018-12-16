@@ -4,8 +4,8 @@ import (
 	//	"crypto/cipher"
 	"crypto/rsa"
 	"encoding/gob"
-	//	"encoding/json"
-	//	"errors"
+	"encoding/json"
+	//"errors"
 	//"fmt"
 	"github.com/bellent69ne/ratnet/ratcrypt"
 	//"io/ioutil"
@@ -38,10 +38,18 @@ const (
 )
 
 type Session struct {
-	conn        net.Conn
+	Conn        net.Conn
 	privateKey  *rsa.PrivateKey
 	aesKey      []byte
 	alienPubKey *rsa.PublicKey
+}
+
+func (self *Session) SetAES(key []byte) {
+	self.aesKey = key
+}
+
+func (self *Session) SetAlienKey(alien *rsa.PublicKey) {
+	self.alienPubKey = alien
 }
 
 // PublicKey - returns public key for session
@@ -78,7 +86,7 @@ func (self *Session) GenerateAESkey() error {
 
 // Connect - connects to the specified endpoint
 func (self *Session) Connect(endpoint string) (err error) {
-	self.conn, err = net.Dial("tcp", endpoint)
+	self.Conn, err = net.Dial("tcp", endpoint)
 	if err != nil {
 		return err
 	}
@@ -87,19 +95,175 @@ func (self *Session) Connect(endpoint string) (err error) {
 }
 
 // SendParcel - sends parcel to the connection
-func (self *Session) SendParcel(parcel *Parcel) {
-	parcelEncoder := gob.NewEncoder(self.conn)
+func (self *Session) SendParcel(newParcel *Parcel) error {
+	var err error
+	var encryptedParcel Parcel
+	switch string(newParcel.Message) {
+	case MsgHelloFriend:
+		// don't encrypt parcel
+		encryptedParcel = *newParcel
+	case MsgHaveAGift:
+		// encrypt Parcel with rsa
+		encryptedParcel, err = encryptRSA(self, newParcel)
+	case ErrDontUnderstand:
+		{
+			// don't encrypt parcel
+			if self.aesKey == nil {
+				encryptedParcel = *newParcel
+			} else {
+				encryptedParcel, err = encryptAES(self.aesKey, newParcel)
+			}
+		}
+	default:
+		//encrypt parcel with aes
+		encryptedParcel, err = encryptAES(self.aesKey, newParcel)
+	}
 
-	parcelEncoder.Encode(*parcel)
+	if err != nil {
+		return err
+	}
+
+	parcelEncoder := gob.NewEncoder(self.Conn)
+
+	parcelEncoder.Encode(encryptedParcel)
+
+	return nil
 }
+
+//////////////////////////////////////////////////////////////////////////////
+////////////////////    Encryption routines  /////////////////////////////////
+func encryptRSA(curSession *Session, newParcel *Parcel) (Parcel, error) {
+	var encryptedParcel Parcel
+
+	data, err := ratcrypt.EncryptRSA(curSession.alienPubKey,
+		newParcel.Message)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	encryptedParcel.Message = data
+	data, err = ratcrypt.EncryptRSA(curSession.alienPubKey,
+		newParcel.Attachment)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	encryptedParcel.Attachment = data
+	return encryptedParcel, nil
+}
+
+// Something wrong happens here
+func encryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
+	newEnvelope, err := ratcrypt.EncryptAES(key,
+		newParcel.Message)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+	//fmt.Println("Assfuck1 ", newEnvelope)
+
+	data, err := json.Marshal(newEnvelope)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+	//	fmt.Println("Assfuck2 ", data)
+	var encryptedParcel Parcel
+	encryptedParcel.Message = data
+
+	newEnvelope, err = ratcrypt.EncryptAES(key,
+		newParcel.Attachment)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+	//fmt.Println("Assfuck3 ", newEnvelope)
+	data, err = json.Marshal(newEnvelope)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	//	fmt.Println("Assfuck4 ", data)
+	encryptedParcel.Attachment = data
+	return encryptedParcel, nil
+}
+
+////////////////////////  Encryption routines  /////////////////////////
+////////////////////////////////////////////////////////////////////////
 
 // ReceiveParcel - receives parcel from the connection
-func ReceiveParcel(conn net.Conn) (receivedParcel Parcel) {
-	parcelDecoder := gob.NewDecoder(conn)
+func (self *Session) ReceiveParcel() (Parcel, error) {
+	var receivedParcel Parcel
+	parcelDecoder := gob.NewDecoder(self.Conn)
 	parcelDecoder.Decode(&receivedParcel)
 
-	return
+	var decryptedParcel Parcel
+	var err error
+
+	if string(receivedParcel.Message) == MsgHelloFriend {
+		return receivedParcel, nil
+	} else if string(receivedParcel.Message) == ErrDontUnderstand {
+		return receivedParcel, nil
+	} else {
+		if self.aesKey == nil {
+			decryptedParcel, err = decryptRSA(self.privateKey, &receivedParcel)
+		} else {
+			decryptedParcel, err = decryptAES(self.aesKey, &receivedParcel)
+		}
+	}
+
+	return decryptedParcel, err
 }
+
+////////////////////////  Decryption routines  //////////////////////////
+/////////////////////////////////////////////////////////////////////////
+
+func decryptRSA(private *rsa.PrivateKey, newParcel *Parcel) (Parcel, error) {
+	data, err := ratcrypt.DecryptRSA(private, newParcel.Message)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	var decryptedParcel Parcel
+	decryptedParcel.Message = data
+
+	data, err = ratcrypt.DecryptRSA(private, newParcel.Attachment)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	decryptedParcel.Attachment = data
+
+	return decryptedParcel, nil
+}
+
+func decryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
+	var newEnvelope ratcrypt.Envelope
+	err := json.Unmarshal(newParcel.Message, &newEnvelope)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+	data, err := ratcrypt.DecryptAES(key, newEnvelope)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	var decryptedParcel Parcel
+	decryptedParcel.Message = data
+
+	err = json.Unmarshal(newParcel.Attachment, &newEnvelope)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+	data, err = ratcrypt.DecryptAES(key, newEnvelope)
+	if err != nil {
+		return Parcel{nil, nil}, err
+	}
+
+	decryptedParcel.Attachment = data
+
+	return decryptedParcel, nil
+}
+
+////////////////////////  Decryption routines  //////////////////////////
+/////////////////////////////////////////////////////////////////////////
 
 /*func SendParcel(conn net.Conn, parcel *Parcel) {
 	data, err := json.Marshal(*parcel)

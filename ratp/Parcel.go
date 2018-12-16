@@ -8,63 +8,65 @@ import (
 )
 
 type Parcel struct {
-	Message    string
+	Message    []byte
 	Attachment []byte
 }
 
 // Make - makes appropriate parcel given the message and attachment
-func (self *Parcel) Make(message string, attachment interface{}) error {
+//func (self *Parcel) Make(message string, attachment interface{}) error {
+func NewParcel(message string, attachment interface{}) (Parcel, error) {
 	var err error
+	var newParcel Parcel
 
 	switch message {
 	case MsgHelloFriend:
 		{
-			self.Message = message
-			self.helloFriend(attachment)
+			newParcel.Message = []byte(message)
+			newParcel.helloFriend(attachment)
 		}
 	case MsgHaveAGift:
 		{
-			err = self.haveAgift(attachment)
+			err = newParcel.haveAgift(attachment)
 			if err == nil {
-				self.Message = message
+				newParcel.Message = []byte(message)
 			}
 		}
 	case MsgAppreciate:
-		self.Message = message
+		newParcel.Message = []byte(message)
 	case MsgNeedFriends:
-		self.Message = message
+		newParcel.Message = []byte(message)
 	case MsgYoureWelcome:
 		{
-			err = self.youreWelcome(attachment)
+			err = newParcel.youreWelcome(attachment)
 			if err == nil {
-				self.Message = message
+				newParcel.Message = []byte(message)
 			}
 		}
 	case MsgBeFriends:
 		{
-			err = self.beFriends(attachment)
+			err = newParcel.beFriends(attachment)
 			if err == nil {
-				self.Message = message
+				newParcel.Message = []byte(message)
 			}
 		}
 	case MsgWereFriends:
-		self.Message = message
+		newParcel.Message = []byte(message)
 	case ErrCantHelp:
-		self.Message = message
+		newParcel.Message = []byte(message)
 	case ErrDontUnderstand:
-		self.Message = message
+		newParcel.Message = []byte(message)
 	case MsgData:
 		{
-			err = self.yourData(attachment)
+			err = newParcel.yourData(attachment)
 			if err == nil {
-				self.Message = message
+				newParcel.Message = []byte(message)
 			}
 		}
 	default:
 		err = errors.New("Wrong message " + message)
 	}
 
-	return err
+	return newParcel, err
 }
 
 func (self *Parcel) beFriends(attachment interface{}) error {
@@ -79,9 +81,9 @@ func (self *Parcel) yourData(attachment interface{}) error {
 
 func (self *Parcel) helloFriend(attachment interface{}) {
 	switch attachment := attachment.(type) {
-	case rsa.PublicKey:
+	case *rsa.PublicKey:
 		{
-			data, err := json.Marshal(attachment)
+			data, err := json.Marshal(*attachment)
 			if err != nil {
 				log.Println(err)
 			}
