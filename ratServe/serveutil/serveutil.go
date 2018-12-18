@@ -2,6 +2,7 @@ package serveutil
 
 import (
 	//"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"github.com/bellent69ne/ratnet/ratp"
 	"log"
@@ -25,7 +26,10 @@ func Serve() {
 	go func() {
 		for {
 			addr := <-addrChan
-			addresses = append(addresses, addr)
+			//addr = justIpAddr(addr)
+			if addrDoesntExist(addr, addresses) {
+				addresses = append(addresses, addr)
+			}
 		}
 	}()
 
@@ -41,54 +45,111 @@ func Serve() {
 	}
 }
 
+func addrDoesntExist(addr string, addresses []string) bool {
+	for _, val := range addresses {
+		if val == addr {
+			return false
+		}
+	}
+
+	return true
+}
+
+func justIpAddr(addr string) string {
+	var tmp []byte
+	for i, val := range addr {
+		if val == ':' {
+			tmp = []byte(addr)
+			tmp = tmp[:i]
+			break
+		}
+	}
+
+	return string(tmp)
+}
+
 func handleSession(curSession *ratp.Session, addrChan chan string,
 	addrs []string) {
+	// Close session when finished
 	defer curSession.Conn.Close()
+	// Receive parcel from the peer
 	parcel, err := curSession.ReceiveParcel()
+	// if couldn't receive parcel
 	if err != nil {
+		// log why, and close session
 		log.Println(err)
 		return
 	}
+	// print contents
+	printParcel(&parcel)
+	// if that parcel is not "hello fri3nd" handshaking
 	if !isHelloFriend(&parcel, curSession, addrChan) {
+		// have nothing to do, close session
 		return
 	}
 
+	// Generate RSA key for this session
 	err = curSession.GenerateRSAkey()
+	// if couldn't generate rsa key for this session
 	if err != nil {
+		// log why, close session
 		log.Println(err)
 		return
 	}
 
+	// if we couldn't answer to "hello fri3nd" handshaking
+	// have nothing to do, close session
 	if !toldHelloFriend(curSession) {
 		return
 	}
 
+	// Receive parcel, should receive "I have a gift"
+	// with associated aes key
 	parcel, err = curSession.ReceiveParcel()
+	// if couldn't receive parcel
 	if err != nil {
+		// log why, close session
 		log.Println(err)
 		return
 	}
+	// print the contents fo the parcel
+	printParcel(&parcel)
 
-	if !isHaveAGift(&parcel) {
+	// if received parcel is not "I have a gift"
+	// nothing to do, close session
+	if !isHaveAGift(curSession, &parcel) {
 		return
 	}
-	curSession.SetAES(parcel.Attachment)
 
+	// Receive new parcel, should receive "I need fri3nds"
 	parcel, err = curSession.ReceiveParcel()
+	// if couldn't receive any parcel
 	if err != nil {
+		// log why, close session
 		log.Println(err)
 		return
 	}
-
+	// print the contents of the parcel
+	printParcel(&parcel)
+	// if received parcel is not "I need fri3nds"
+	// nothing to do, close session
 	if !isNeedFriends(&parcel) {
 		return
 	}
 
+	// Send ip addresses of potential fri3nds
 	err = sendFriends(curSession, addrs)
+	// if couldn't send potential fri3nds
 	if err != nil {
+		// log why, close session
 		log.Println(err)
 		return
 	}
+}
+
+func printParcel(newParcel *ratp.Parcel) {
+	fmt.Println(string(newParcel.Message))
+	fmt.Println(newParcel.Attachment)
 }
 
 func isHelloFriend(newParcel *ratp.Parcel, curSession *ratp.Session,
@@ -129,12 +190,13 @@ func toldHelloFriend(newSession *ratp.Session) bool {
 
 func isHaveAGift(curSession *ratp.Session, parcel *ratp.Parcel) bool {
 	if string(parcel.Message) == ratp.MsgHaveAGift {
+		curSession.SetAES(parcel.Attachment)
 		newParcel, err := ratp.NewParcel(ratp.MsgAppreciate, nil)
 		if err != nil {
 			log.Println(err)
 			return false
 		}
-		err = curSession.SendParcel(newParcel)
+		err = curSession.SendParcel(&newParcel)
 		if err != nil {
 			log.Println(err)
 			return false
@@ -156,10 +218,12 @@ func isNeedFriends(parcel *ratp.Parcel) bool {
 func sendFriends(curSession *ratp.Session, addrs []string) error {
 	friendsSlice := make([]string, 0)
 	num := 0
+	//curAlienIp := justIpAddr(curSession.Conn.RemoteAddr().String())
 	for _, val := range addrs {
 		if num == friendsNum {
 			break
 		}
+		//	if val == curAlienIp {
 		if val == curSession.Conn.RemoteAddr().String() {
 			continue
 		}
@@ -171,7 +235,11 @@ func sendFriends(curSession *ratp.Session, addrs []string) error {
 	if len(friendsSlice) == 0 {
 		err = makeAndSend(curSession, ratp.ErrCantHelp, nil)
 	} else {
-		err = makeAndSend(curSession, ratp.MsgYoureWelcome, addrs)
+		data, err := encodeFriends(friendsSlice)
+		if err != nil {
+			return err
+		}
+		err = makeAndSend(curSession, ratp.MsgYoureWelcome, data)
 	}
 
 	return err
@@ -188,4 +256,13 @@ func makeAndSend(curSession *ratp.Session, message string, attachment interface{
 	}
 
 	return nil
+}
+
+func encodeFriends(friendsSlice []string) ([]byte, error) {
+	data, err := json.Marshal(friendsSlice)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }

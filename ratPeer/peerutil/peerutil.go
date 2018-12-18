@@ -8,6 +8,7 @@ import (
 	"log"
 )
 
+//func GetFriends() []byte {
 func DoSomething() {
 	endpoint := "127.0.0.1:1366" //+ //string(ratp.PORT)
 	var curSession ratp.Session
@@ -15,42 +16,20 @@ func DoSomething() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// close session when finished
+	defer curSession.Conn.Close()
 
-	err = curSession.GenerateRSAkey()
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = curSession.GenerateAESkey()
-	curParcel, err := ratp.NewParcel(ratp.MsgHelloFriend, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = curSession.SendParcel(&curParcel)
-	if err != nil {
-		log.Fatal(err)
-	}
-	gotParcel, err := curSession.ReceiveParcel()
-	if err != nil {
-		log.Fatal(err)
+	// Make initial handshaking for current session
+	if !ratp.Handshake(&curSession) {
+		//return nil
+		return
 	}
 
-	var alien rsa.PublicKey
-	err = json.Unmarshal(&alien)
-	if err != nil {
-		log.Fatal(err)
-	}
-	curSession.SetAlienKey(&alien)
-
-	err = curSession.GenerateAESkey()
-	if err != nil {
-		log.Fatal(err)
+	// Make session secure
+	if !ratp.SecureSession(&curSession) {
+		return
 	}
 
-	curParcel, err = ratp.NewParcel(ratp.HaveAGift, curSession.AesKey())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = curSession.SendParcel(curParcel)
-
+	addrs := ratp.GetFriendsAddrs(&curSession)
+	fmt.Println(addrs)
 }

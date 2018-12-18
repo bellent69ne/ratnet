@@ -4,7 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"errors"
+	//"errors"
+	//"fmt"
 	"io"
 )
 
@@ -30,9 +31,9 @@ func GenerateAESkey() ([]byte, error) {
 // Returns encrypted message, nonce for encrypted message, and error
 // in case of errors
 func EncryptAES(key []byte, message []byte) (Envelope, error) {
-	if len(key) != keySize {
-		return Envelope{nil, nil}, errors.New(ErrInvalidKey)
-	}
+	//if len(key) != keySize {
+	//	return Envelope{nil, nil}, errors.New(ErrInvalidKey)
+	//}
 	aesGCM, err := makeAesGCM(key)
 	if err != nil {
 		return Envelope{nil, nil}, err
@@ -57,15 +58,15 @@ func EncryptAES(key []byte, message []byte) (Envelope, error) {
 // with aes in GCM mode. Returns decrypted message and error
 // in case of errors
 func DecryptAES(key []byte, secretEnvelope Envelope) ([]byte, error) {
-	if len(key) != keySize {
-		return nil, errors.New(ErrInvalidKey)
-	}
+	//if len(key) != keySize {
+	//	return nil, errors.New(ErrInvalidKey)
+	//}
 	aesGCM, err := makeAesGCM(key)
 	if err != nil {
 		return nil, err
 	}
 
-	decryptedMsg, err := aesGCM.Open(nil, secretEnvelope.nonce,
+	decryptedMsg, err := aesGCM.Open(nil, secretEnvelope.Nonce,
 		secretEnvelope.Message, nil)
 	if err != nil {
 		return nil, err
@@ -87,5 +88,5 @@ func makeAesGCM(key []byte) (cipher.AEAD, error) {
 
 type Envelope struct {
 	Message []byte
-	nonce   []byte
+	Nonce   []byte
 }

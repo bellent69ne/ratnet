@@ -29,7 +29,8 @@ const (
 	MsgBeFriends   = "/* Be fri3nds */\n"
 	MsgWereFriends = "/* We're friends */\n"
 	MsgData        = "/* Your data */\n"
-	PORT           = 1366
+	ServerPort     = "1366"
+	PeerPort       = "1367"
 )
 
 const (
@@ -161,10 +162,12 @@ func encryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 	}
 	//fmt.Println("Assfuck1 ", newEnvelope)
 
+	// json encoding
 	data, err := json.Marshal(newEnvelope)
 	if err != nil {
 		return Parcel{nil, nil}, err
 	}
+
 	//	fmt.Println("Assfuck2 ", data)
 	var encryptedParcel Parcel
 	encryptedParcel.Message = data
@@ -175,6 +178,7 @@ func encryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 		return Parcel{nil, nil}, err
 	}
 	//fmt.Println("Assfuck3 ", newEnvelope)
+	// json encoding
 	data, err = json.Marshal(newEnvelope)
 	if err != nil {
 		return Parcel{nil, nil}, err
@@ -252,6 +256,7 @@ func decryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 	if err != nil {
 		return Parcel{nil, nil}, err
 	}
+
 	data, err = ratcrypt.DecryptAES(key, newEnvelope)
 	if err != nil {
 		return Parcel{nil, nil}, err

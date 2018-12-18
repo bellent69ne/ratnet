@@ -70,12 +70,12 @@ func NewParcel(message string, attachment interface{}) (Parcel, error) {
 }
 
 func (self *Parcel) beFriends(attachment interface{}) error {
-	errMsg := MsgBeFriends + " has to have associated ip addresses in []byte"
+	errMsg := MsgBeFriends + " doesn't have associated friends ip addresses"
 	return self.byteData(attachment, errMsg)
 }
 
 func (self *Parcel) yourData(attachment interface{}) error {
-	errMsg := MsgData + " should have []byte of data attached"
+	errMsg := MsgData + " doesn't have any attached data"
 	return self.byteData(attachment, errMsg)
 }
 
@@ -95,7 +95,7 @@ func (self *Parcel) helloFriend(attachment interface{}) {
 }
 
 func (self *Parcel) haveAgift(attachment interface{}) error {
-	errMsg := MsgHaveAGift + " has to have block cipher key attached"
+	errMsg := MsgHaveAGift + " doesn't have attached block cipher key"
 	return self.byteData(attachment, errMsg)
 }
 
