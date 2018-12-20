@@ -29,8 +29,10 @@ const (
 	MsgBeFriends   = "/* Be fri3nds */\n"
 	MsgWereFriends = "/* We're friends */\n"
 	MsgData        = "/* Your data */\n"
-	ServerPort     = "1366"
-	PeerPort       = "1367"
+	MsgDone        = "/* We're done */"
+	ServerPort     = ":1366"
+	PeerPort       = ":1367"
+	NODES          = 1
 )
 
 const (
@@ -160,7 +162,6 @@ func encryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 	if err != nil {
 		return Parcel{nil, nil}, err
 	}
-	//fmt.Println("Assfuck1 ", newEnvelope)
 
 	// json encoding
 	data, err := json.Marshal(newEnvelope)
@@ -168,7 +169,6 @@ func encryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 		return Parcel{nil, nil}, err
 	}
 
-	//	fmt.Println("Assfuck2 ", data)
 	var encryptedParcel Parcel
 	encryptedParcel.Message = data
 
@@ -177,14 +177,12 @@ func encryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 	if err != nil {
 		return Parcel{nil, nil}, err
 	}
-	//fmt.Println("Assfuck3 ", newEnvelope)
 	// json encoding
 	data, err = json.Marshal(newEnvelope)
 	if err != nil {
 		return Parcel{nil, nil}, err
 	}
 
-	//	fmt.Println("Assfuck4 ", data)
 	encryptedParcel.Attachment = data
 	return encryptedParcel, nil
 }

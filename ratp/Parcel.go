@@ -62,6 +62,8 @@ func NewParcel(message string, attachment interface{}) (Parcel, error) {
 				newParcel.Message = []byte(message)
 			}
 		}
+	case MsgDone:
+		newParcel.Message = []byte(message)
 	default:
 		err = errors.New("Wrong message " + message)
 	}

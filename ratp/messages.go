@@ -9,7 +9,7 @@ import (
 
 // Handshake - makes initial handshaking between
 // two peers in the session
-func Handshake(curSession *ratp.Session) bool {
+func Handshake(curSession *Session) bool {
 	// if couldn't say "hello fri3nd"
 	// nothing to do
 	if !SayHelloFriend(curSession) {
@@ -26,15 +26,15 @@ func Handshake(curSession *ratp.Session) bool {
 	return true
 }
 
-func printParcel(parcel *ratp.Parcel) {
+func printParcel(parcel *Parcel) {
 	fmt.Println(string(parcel.Message))
 	fmt.Println(parcel.Attachment)
 }
 
 // SayHelloFriend - sends "hello fri3nd" parcel to the current session
-func SayHelloFriend(curSession *ratp.Session) bool {
+func SayHelloFriend(curSession *Session) bool {
 	// Message hello fri3nd
-	curParcel, err := ratp.NewParcel(ratp.MsgHelloFriend, nil)
+	curParcel, err := NewParcel(MsgHelloFriend, nil)
 	if err != nil {
 		log.Println(err)
 		return false
@@ -51,7 +51,7 @@ func SayHelloFriend(curSession *ratp.Session) bool {
 }
 
 // ReceiveHelloFriend - receive parcel with "hello fri3nd" message
-func ReceiveHelloFriend(curSession *ratp.Session) bool {
+func ReceiveHelloFriend(curSession *Session) bool {
 	// Receive parcel from the session
 	// Should have "hello fri3nd" message
 	// with remote peers public key attached
@@ -65,7 +65,7 @@ func ReceiveHelloFriend(curSession *ratp.Session) bool {
 	printParcel(&gotParcel)
 	// if message in received parcel is not "hello fri3nd"
 	// exit
-	if string(gotParcel.Message) != ratp.MsgHelloFriend {
+	if string(gotParcel.Message) != MsgHelloFriend {
 		return false
 	}
 
@@ -82,9 +82,9 @@ func ReceiveHelloFriend(curSession *ratp.Session) bool {
 }
 
 // SayFuckOFF - sends "don't understand" parcel to the session
-func SayFuckOFF(curSession *ratp.Session) bool {
+func SayFuckOFF(curSession *Session) bool {
 	// make fuckoff parcel
-	justFuckOff, err := ratp.NewParcel(ratp.ErrDontUnderstand, nil)
+	justFuckOff, err := NewParcel(ErrDontUnderstand, nil)
 	// if couldn't create
 	if err != nil {
 		// log why, exit
@@ -106,7 +106,7 @@ func SayFuckOFF(curSession *ratp.Session) bool {
 
 // SecureSession - makes session secure negotiating aes key
 // for communication
-func SecureSession(curSession *ratp.Session) bool {
+func SecureSession(curSession *Session) bool {
 	// Now generate aes encryption key for this session
 	err := curSession.GenerateAESkey()
 	if err != nil {
@@ -116,7 +116,7 @@ func SecureSession(curSession *ratp.Session) bool {
 	///////////////////////////////////////////////////
 
 	// Create Message "I have a gift" with encrypted aes key
-	curParcel, err := ratp.NewParcel(ratp.MsgHaveAGift, curSession.AesKey())
+	curParcel, err := NewParcel(MsgHaveAGift, curSession.AesKey())
 	if err != nil {
 		log.Println(err)
 		return false
@@ -140,7 +140,7 @@ func SecureSession(curSession *ratp.Session) bool {
 
 // Appreciated - receives parcel and checks whether it is
 // appreciation. Returns true if it is appreciation
-func Appreciated(curSession *ratp.Session) bool {
+func Appreciated(curSession *Session) bool {
 	// Receive appreciation from the ratnet server
 	gotParcel, err := curSession.ReceiveParcel()
 	if err != nil {
@@ -150,14 +150,14 @@ func Appreciated(curSession *ratp.Session) bool {
 	//printParcel(&gotParcel)
 	// if message in received parcel is not appreciation
 	// nothing to do
-	if string(gotParcel.Message) != ratp.MsgAppreciate {
+	if string(gotParcel.Message) != MsgAppreciate {
 		return false
 	}
 
 	return true
 }
 
-func GetFriendsAddrs(curSession *ratp.Session) []string {
+func GetFriendsAddrs(curSession *Session) []string {
 	if !SayINeedFriends(curSession) {
 		return nil
 	}
@@ -171,9 +171,9 @@ func GetFriendsAddrs(curSession *ratp.Session) []string {
 	return addrs
 }
 
-func SayINeedFriends(curSession *ratp.Session) bool {
+func SayINeedFriends(curSession *Session) bool {
 	// Now create Message "I need fri3nds"
-	curParcel, err := ratp.NewParcel(ratp.MsgNeedFriends, nil)
+	curParcel, err := NewParcel(MsgNeedFriends, nil)
 	// if couldn't create parcel with message "I need fri3nds"
 	if err != nil {
 		// log why, exit
@@ -194,14 +194,14 @@ func SayINeedFriends(curSession *ratp.Session) bool {
 	return true
 }
 
-func ReceiveFriends(curSession *ratp.Session) ([]string, error) {
+func ReceiveFriends(curSession *Session) ([]string, error) {
 	// Receive parcel from the session
 	// should have "You're welcome" message in it
 	gotParcel, err := curSession.ReceiveParcel()
 	if err != nil {
 		return nil, err
 	}
-	if string(gotParcel.Message) != ratp.MsgYoureWelcome {
+	if string(gotParcel.Message) != MsgYoureWelcome {
 		return nil, err
 	}
 
@@ -221,4 +221,111 @@ func decodeFriends(friendsIps []byte) ([]string, error) {
 	}
 
 	return friendsAddrs, nil
+}
+
+func BeFriends(curSession *Session, data []byte) bool {
+	newParcel, err := NewParcel(MsgBeFriends, data)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	err = curSession.SendParcel(&newParcel)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	// think about it
+	if !acceptedFriendship(curSession) {
+		return false
+	}
+
+	return true
+}
+
+func acceptedFriendship(curSession *Session) bool {
+	gotParcel, err := curSession.ReceiveParcel()
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	if string(gotParcel.Message) != MsgWereFriends {
+		return false
+	}
+
+	return true
+
+}
+
+func WantsToBeFriends(curSession *Session) ([]byte, error) {
+	gotParcel, err := curSession.ReceiveParcel()
+	if err != nil {
+		return nil, err
+	}
+
+	if string(gotParcel.Message) == MsgBeFriends {
+		err = SayWereFriends(curSession)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return gotParcel.Attachment, nil
+}
+
+func SayWereFriends(curSession *Session) error {
+	curParcel, err := NewParcel(MsgWereFriends, nil)
+	if err != nil {
+		return err
+	}
+
+	err = curSession.SendParcel(&curParcel)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SayBeFriends(curSession *Session, ipAddrs []byte) error {
+	parcel, err := NewParcel(MsgBeFriends, ipAddrs)
+	if err != nil {
+		return err
+	}
+
+	err = curSession.SendParcel(&parcel)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ReceiveData(curSession *Session) ([]byte, error) {
+	parcel, err := curSession.ReceiveParcel()
+	if err != nil {
+		return nil, err
+	}
+
+	if string(parcel.Message) != MsgData {
+		return nil, err
+	}
+
+	return parcel.Attachment, nil
+}
+
+func SayDone(curSession *Session) error {
+	parcel, err := NewParcel(MsgDone, nil)
+	if err != nil {
+		return err
+	}
+
+	err = curSession.SendParcel(&parcel)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

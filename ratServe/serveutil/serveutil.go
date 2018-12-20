@@ -3,6 +3,7 @@ package serveutil
 import (
 	//"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/bellent69ne/ratnet/ratp"
 	"log"
@@ -13,9 +14,14 @@ const (
 	friendsNum = 3
 )
 
+const (
+	ErrKeyExchange = "secure key exchange failed..."
+	ErrHandshake   = "couldn't make a handshake..."
+)
+
 func Serve() {
 	fmt.Println("Greetings from ratnet server :)...")
-	ln, err := net.Listen("tcp", ":1366") //+string(ratp.PORT))
+	ln, err := net.Listen("tcp", ratp.ServerPort) //+string(ratp.PORT))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -26,7 +32,7 @@ func Serve() {
 	go func() {
 		for {
 			addr := <-addrChan
-			//addr = justIpAddr(addr)
+			addr = justIpAddr(addr)
 			if addrDoesntExist(addr, addresses) {
 				addresses = append(addresses, addr)
 			}
@@ -40,7 +46,6 @@ func Serve() {
 			log.Println(err)
 			continue
 		}
-		fmt.Println(addresses)
 		go handleSession(&newSession, addrChan, addresses)
 	}
 }
@@ -70,9 +75,11 @@ func justIpAddr(addr string) string {
 
 func handleSession(curSession *ratp.Session, addrChan chan string,
 	addrs []string) {
+	peerAddr := curSession.Conn.RemoteAddr().String()
+	fmt.Printf("Connected %s\n", peerAddr)
 	// Close session when finished
 	defer curSession.Conn.Close()
-	// Receive parcel from the peer
+	/*// Receive parcel from the peer
 	parcel, err := curSession.ReceiveParcel()
 	// if couldn't receive parcel
 	if err != nil {
@@ -119,10 +126,15 @@ func handleSession(curSession *ratp.Session, addrChan chan string,
 	// nothing to do, close session
 	if !isHaveAGift(curSession, &parcel) {
 		return
-	}
+	}*/
 
+	err := InitiateSession(curSession, addrChan)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	// Receive new parcel, should receive "I need fri3nds"
-	parcel, err = curSession.ReceiveParcel()
+	parcel, err := curSession.ReceiveParcel()
 	// if couldn't receive any parcel
 	if err != nil {
 		// log why, close session
@@ -145,6 +157,60 @@ func handleSession(curSession *ratp.Session, addrChan chan string,
 		log.Println(err)
 		return
 	}
+	fmt.Printf("Session %s closed\n", peerAddr)
+}
+
+func InitiateSession(curSession *ratp.Session, addrChan chan string) error {
+	// Receive parcel from the peer
+	parcel, err := curSession.ReceiveParcel()
+	// if couldn't receive parcel
+	if err != nil {
+		// log why, and close session
+		return err
+	}
+	// print contents
+	printParcel(&parcel)
+	// if that parcel is not "hello fri3nd" handshaking
+	if !isHelloFriend(&parcel, curSession) {
+		// have nothing to do, close session
+		return errors.New(ErrHandshake)
+	}
+	if addrChan != nil {
+		addrChan <- curSession.Conn.RemoteAddr().String()
+	}
+
+	// Generate RSA key for this session
+	err = curSession.GenerateRSAkey()
+	// if couldn't generate rsa key for this session
+	if err != nil {
+		// log why, close session
+		return err
+	}
+
+	// if we couldn't answer to "hello fri3nd" handshaking
+	// have nothing to do, close session
+	if !toldHelloFriend(curSession) {
+		return errors.New(ErrHandshake)
+	}
+
+	// Receive parcel, should receive "I have a gift"
+	// with associated aes key
+	parcel, err = curSession.ReceiveParcel()
+	// if couldn't receive parcel
+	if err != nil {
+		// log why, close session
+		return err
+	}
+	// print the contents fo the parcel
+	printParcel(&parcel)
+
+	// if received parcel is not "I have a gift"
+	// nothing to do, close session
+	if !isHaveAGift(curSession, &parcel) {
+		return errors.New(ErrKeyExchange)
+	}
+
+	return nil
 }
 
 func printParcel(newParcel *ratp.Parcel) {
@@ -152,8 +218,7 @@ func printParcel(newParcel *ratp.Parcel) {
 	fmt.Println(newParcel.Attachment)
 }
 
-func isHelloFriend(newParcel *ratp.Parcel, curSession *ratp.Session,
-	addrChan chan string) bool {
+func isHelloFriend(newParcel *ratp.Parcel, curSession *ratp.Session) bool {
 	if string(newParcel.Message) != ratp.MsgHelloFriend {
 
 		justFuckOf, err := ratp.NewParcel(ratp.ErrDontUnderstand, nil)
@@ -168,7 +233,7 @@ func isHelloFriend(newParcel *ratp.Parcel, curSession *ratp.Session,
 		return false
 	}
 
-	addrChan <- curSession.Conn.RemoteAddr().String()
+	//addrChan <- curSession.Conn.RemoteAddr().String()
 
 	return true
 }
@@ -218,13 +283,13 @@ func isNeedFriends(parcel *ratp.Parcel) bool {
 func sendFriends(curSession *ratp.Session, addrs []string) error {
 	friendsSlice := make([]string, 0)
 	num := 0
-	//curAlienIp := justIpAddr(curSession.Conn.RemoteAddr().String())
+	curAlienIp := justIpAddr(curSession.Conn.RemoteAddr().String())
 	for _, val := range addrs {
 		if num == friendsNum {
 			break
 		}
-		//	if val == curAlienIp {
-		if val == curSession.Conn.RemoteAddr().String() {
+		if val == curAlienIp {
+			//if val == curSession.Conn.RemoteAddr().String() {
 			continue
 		}
 		friendsSlice = append(friendsSlice, val)
