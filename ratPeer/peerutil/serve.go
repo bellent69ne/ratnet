@@ -3,6 +3,7 @@ package peerutil
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/bellent69ne/ratnet/ratPeer/copycat"
 	"github.com/bellent69ne/ratnet/ratServe/serveutil"
 	"github.com/bellent69ne/ratnet/ratp"
@@ -46,6 +47,7 @@ func handleSession(curSession *ratp.Session, serverAddr string) {
 
 	chainAddrs, err := receiveFriends(curSession)
 	if err != nil {
+		fmt.Println("Or may be we are after receive friends?")
 		log.Println(err)
 		return
 	}
@@ -75,6 +77,7 @@ func beTheLooter(curSession *ratp.Session) {
 	}
 
 	url := string(data)
+	log.Println(url)
 	size, err := copycat.Inspect(&url)
 
 	if err != nil {
@@ -90,6 +93,7 @@ func beTheLooter(curSession *ratp.Session) {
 		go copycat.LootChunk(&url, nextChunk, stream)
 
 		received := <-stream
+		fmt.Println("Data = ", len(received))
 		parcel, err := ratp.NewParcel(ratp.MsgData, received)
 		err = curSession.SendParcel(&parcel)
 		if err != nil {
@@ -103,9 +107,16 @@ func beTheLooter(curSession *ratp.Session) {
 			nextChunk = int64(size)
 		}
 	}
+
+	err = ratp.SayDone(curSession)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func beLikeARouter(curSession *ratp.Session, frIpAddrs []string, serverAddr string) error {
+	log.Println("in beLikeARouter")
 	serverSes := ServerSession(serverAddr)
 	if serverSes == nil {
 		return errors.New("Couldn't create session with server")
@@ -177,11 +188,13 @@ func receiveFriends(curSession *ratp.Session) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var friends []string
-	err = json.Unmarshal(data, &friends)
-	if err != nil {
-		return nil, err
+	if len(data) != 0 {
+		err = json.Unmarshal(data, friends)
+		if err != nil {
+			log.Println("That json shit is")
+			return nil, err
+		}
 	}
 
 	return friends, nil

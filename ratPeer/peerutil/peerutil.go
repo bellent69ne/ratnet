@@ -2,6 +2,7 @@ package peerutil
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/bellent69ne/ratnet/ratPeer/copycat"
 	"github.com/bellent69ne/ratnet/ratp"
@@ -11,9 +12,9 @@ import (
 )
 
 const (
-	UpdatePEERs = "update peers\n"
-	ShowPEERS   = "show peers\n"
-	LOOT        = "loot\n"
+	UpdatePEERs = "update peers"
+	ShowPEERS   = "show peers"
+	LOOT        = "loot"
 )
 
 func JustDoIt() {
@@ -21,7 +22,7 @@ func JustDoIt() {
 	var serverAddr string
 	for {
 		fmt.Println("Server address: ")
-		serverAddr := GetUserInput()
+		serverAddr = GetUserInput()
 		serverSes = ServerSession(serverAddr)
 		if serverSes != nil {
 			break
@@ -39,11 +40,13 @@ func shell(serverAddr string) {
 	for {
 		fmt.Print("RATnet$ ")
 		str := GetUserInput()
+		var serverSes *ratp.Session
 
 		switch str {
 		case UpdatePEERs:
 			{
-				serverSes := ServerSession(serverAddr)
+				fmt.Println(serverAddr)
+				serverSes = ServerSession(serverAddr)
 				if serverSes == nil {
 					fmt.Println("Couldn't update peers...")
 					break
@@ -52,6 +55,8 @@ func shell(serverAddr string) {
 			}
 		case ShowPEERS:
 			printPeers(addrs)
+		case "":
+			continue
 
 		default:
 			DoSomeStuff(str, addrs)
@@ -67,11 +72,12 @@ func DoSomeStuff(str string, addrs []string) {
 		// download the file specified
 		{
 			if len(splitted) > 2 {
-				fmt.Printf("command \"%s\" has to have only one argument",
+				fmt.Printf("command \"%s\" has to have only one argument\n",
 					splitted[0])
 				return
 			}
 			// Loot
+			Loot(addrs, splitted[1])
 		}
 	default:
 		fmt.Printf("command \"%s\" doesn't exist\n\n", splitted[0])
@@ -80,10 +86,17 @@ func DoSomeStuff(str string, addrs []string) {
 
 func Loot(addrs []string, url string) {
 	peerSes := getSecureSession(addrs)
-	if peerSes != nil {
+	if peerSes == nil {
 		log.Println("Couldn't initiate secure connection with existing peers")
 		return
 	}
+
+	err := MakeFriendShip(peerSes)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	// Do this shit
 	parcel, err := ratp.NewParcel(ratp.MsgData, []byte(url))
 	if err != nil {
@@ -96,29 +109,69 @@ func Loot(addrs []string, url string) {
 		log.Println(err)
 		return
 	}
+	fmt.Println("Sent parcel with data in Loot")
 
 	stream := make(chan []byte)
 
 	go getData(peerSes, stream)
-	err = copycat.WriteToFile(copycat.Filename(&url), stream)
-	if err != nil {
-		log.Println(err)
-		return
+	for {
+		err = copycat.WriteToFile(copycat.Filename(&url), stream)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
+	// should think about sending done message
+}
+
+func MakeFriendShip(peerSes *ratp.Session) error {
+	parcel, err := ratp.NewParcel(ratp.MsgBeFriends, nil)
+	if err != nil {
+		return err
+	}
+	err = peerSes.SendParcel(&parcel)
+	if err != nil {
+		return err
+	}
+
+	gotParcel, err := peerSes.ReceiveParcel()
+	if err != nil {
+		return err
+	}
+
+	if string(gotParcel.Message) != ratp.MsgWereFriends {
+		return errors.New("Peer didn't verified friendship")
+	}
+
+	return nil
 }
 
 func getData(peerSes *ratp.Session, stream chan []byte) {
-	var doneParcel ratp.Parcel
-	for string(doneParcel.Message) != ratp.MsgDone {
-		parcel, err := peerSes.ReceiveParcel()
+	//var doneParcel ratp.Parcel
+	//var err error
+	for { //string(doneParcel.Message) != ratp.MsgDone {
+		doneParcel, err := peerSes.ReceiveParcel()
 		if err != nil {
+			log.Println("Are we in get data?")
 			log.Println(err)
 			stream <- nil
 		}
+		if string(doneParcel.Message) == ratp.MsgDone {
+			break
+		}
 
-		stream <- parcel.Attachment
+		log.Println("Data = ", len(doneParcel.Attachment))
+		if len(doneParcel.Attachment) != 0 {
+			stream <- doneParcel.Attachment
+		}
 	}
+	stream <- nil
 }
+
+//type DataChunk struct {
+//	Data    []byte
+//	CanLoot bool
+//}
 
 func getSecureSession(addrs []string) *ratp.Session {
 	var peerSession ratp.Session
@@ -195,6 +248,8 @@ func GetAddresses(serverSes *ratp.Session) []string {
 func GetUserInput() string {
 	in := bufio.NewReader(os.Stdin)
 	str, _ := in.ReadString('\n')
+	data := []byte(str)
+	data = data[:len(str)-1]
 
-	return str
+	return string(data)
 }

@@ -71,10 +71,12 @@ func ReceiveHelloFriend(curSession *Session) bool {
 
 	// Decode alien rsa public key for this session
 	var alien rsa.PublicKey
-	err = json.Unmarshal(gotParcel.Attachment, &alien)
-	if err != nil {
-		log.Println(err)
-		return false
+	if len(gotParcel.Attachment) != 0 {
+		err = json.Unmarshal(gotParcel.Attachment, &alien)
+		if err != nil {
+			log.Println(err)
+			return false
+		}
 	}
 	// set remote peers public key
 	curSession.SetAlienKey(&alien)
@@ -215,9 +217,11 @@ func ReceiveFriends(curSession *Session) ([]string, error) {
 
 func decodeFriends(friendsIps []byte) ([]string, error) {
 	var friendsAddrs []string
-	err := json.Unmarshal(friendsIps, &friendsAddrs)
-	if err != nil {
-		return nil, err
+	if len(friendsIps) != 0 {
+		err := json.Unmarshal(friendsIps, &friendsAddrs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return friendsAddrs, nil

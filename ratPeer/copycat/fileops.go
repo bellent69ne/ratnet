@@ -33,6 +33,9 @@ func WriteToFile(filename string, stream chan []byte) error { //DataChunk) (
 	//if received.err != nil {
 	//	return errors.Wrap(received.err, "Unable to get data from web")
 	//}
+	if received == nil {
+		return errors.New("there's no more data")
+	}
 
 	file, err := accessFile(&filename)
 	if err != nil {

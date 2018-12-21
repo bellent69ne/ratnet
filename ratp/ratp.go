@@ -9,7 +9,7 @@ import (
 	//"fmt"
 	"github.com/bellent69ne/ratnet/ratcrypt"
 	//"io/ioutil"
-	//"log"
+	"log"
 	"net"
 )
 
@@ -238,26 +238,36 @@ func decryptRSA(private *rsa.PrivateKey, newParcel *Parcel) (Parcel, error) {
 
 func decryptAES(key []byte, newParcel *Parcel) (Parcel, error) {
 	var newEnvelope ratcrypt.Envelope
-	err := json.Unmarshal(newParcel.Message, &newEnvelope)
-	if err != nil {
-		return Parcel{nil, nil}, err
-	}
-	data, err := ratcrypt.DecryptAES(key, newEnvelope)
-	if err != nil {
-		return Parcel{nil, nil}, err
+	var data []byte
+
+	if len(newParcel.Message) != 0 {
+		err := json.Unmarshal(newParcel.Message, &newEnvelope)
+		if err != nil {
+			log.Println("Are we in decrypt aes1 ?")
+			return Parcel{nil, nil}, err
+		}
+		data, err = ratcrypt.DecryptAES(key, newEnvelope)
+		if err != nil {
+			log.Println("Are we in decrypt aes2 ?")
+			return Parcel{nil, nil}, err
+		}
 	}
 
 	var decryptedParcel Parcel
 	decryptedParcel.Message = data
 
-	err = json.Unmarshal(newParcel.Attachment, &newEnvelope)
-	if err != nil {
-		return Parcel{nil, nil}, err
-	}
+	if len(newParcel.Attachment) != 0 {
+		err := json.Unmarshal(newParcel.Attachment, &newEnvelope)
+		if err != nil {
+			log.Println("Are we in decrypt aes3 ?")
+			return Parcel{nil, nil}, err
+		}
 
-	data, err = ratcrypt.DecryptAES(key, newEnvelope)
-	if err != nil {
-		return Parcel{nil, nil}, err
+		data, err = ratcrypt.DecryptAES(key, newEnvelope)
+		if err != nil {
+			log.Println("Are we in decrypt aes4 ?")
+			return Parcel{nil, nil}, err
+		}
 	}
 
 	decryptedParcel.Attachment = data

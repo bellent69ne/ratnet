@@ -44,10 +44,12 @@ func NewParcel(message string, attachment interface{}) (Parcel, error) {
 		}
 	case MsgBeFriends:
 		{
-			err = newParcel.beFriends(attachment)
-			if err == nil {
-				newParcel.Message = []byte(message)
-			}
+			//err = newParcel.beFriends(attachment)
+			//if err == nil {
+			//	newParcel.Message = []byte(message)
+			//}
+			newParcel.Message = []byte(message)
+			newParcel.beFriends(attachment)
 		}
 	case MsgWereFriends:
 		newParcel.Message = []byte(message)
@@ -71,9 +73,21 @@ func NewParcel(message string, attachment interface{}) (Parcel, error) {
 	return newParcel, err
 }
 
-func (self *Parcel) beFriends(attachment interface{}) error {
-	errMsg := MsgBeFriends + " doesn't have associated friends ip addresses"
-	return self.byteData(attachment, errMsg)
+func (self *Parcel) beFriends(attachment interface{}) {
+	//errMsg := MsgBeFriends + " doesn't have associated friends ip addresses"
+
+	switch attachment := attachment.(type) {
+	case []byte:
+		{
+			data, err := json.Marshal(attachment)
+			if err != nil {
+				log.Println(err)
+			}
+			self.Attachment = data
+		}
+	default:
+		self.Attachment = nil
+	}
 }
 
 func (self *Parcel) yourData(attachment interface{}) error {
