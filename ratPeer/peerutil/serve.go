@@ -58,8 +58,10 @@ func handleSession(curSession *ratp.Session, serverAddr string) {
 	}
 
 	if len(chainAddrs)+1 < ratp.NODES {
+		log.Println("I am the router")
 		beLikeARouter(curSession, chainAddrs, serverAddr)
 	} else {
+		log.Println("I am the looter")
 		beTheLooter(curSession)
 		err = ratp.SayDone(curSession)
 		if err != nil {
