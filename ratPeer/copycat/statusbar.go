@@ -51,7 +51,7 @@ func state(percent int) string {
 	return string(state)
 }
 
-func printStatus(nextChunk int64, size int, elapsed time.Duration) {
+func printStatus(nextChunk int64, size int64, elapsed time.Duration) {
 	fileSize := 0
 	var strSize, strGot string
 	switch {
