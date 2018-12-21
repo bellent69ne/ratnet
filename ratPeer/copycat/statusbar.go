@@ -52,7 +52,7 @@ func state(percent int) string {
 }
 
 func printStatus(nextChunk int64, size int64, elapsed time.Duration) {
-	fileSize := 0
+	fileSize := int64(0)
 	var strSize, strGot string
 	switch {
 	case size > KB && size < MB:
